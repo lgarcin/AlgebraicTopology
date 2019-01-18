@@ -6,6 +6,7 @@ module Classification
   , connectSurface
   , connectPolys
   , congruent
+  , makeTwistedEdgesAdjacent
   ) where
 
 import qualified Data.Map as Map
@@ -87,10 +88,54 @@ connectPolys' (x:xs) p (y:ys) q
 connectPolys :: Polygon -> Polygon -> Maybe Polygon
 connectPolys p q = connectPolys' p [] q []
 
+{- connectOne :: Polygon -> Surface -> (Polygon, Surface)
+connectOne poly [] = (poly, [])
+connectOne poly (x:xs) =
+  case connectPolys poly x of
+    Nothing ->
+      case connectOne poly xs of
+        (p, s) -> (p, (x : s))
+    Just p -> connectOne p xs
+
+connectSurface' :: Surface -> Surface -> Surface
+connectSurface' [] s = s
+connectSurface' (x:xs) s =
+  case connectOne x xs of
+    (p, q) ->
+      if p == x
+        then connectSurface' xs (x : s)
+        else connectSurface' (p : q) s
+
 connectSurface :: Surface -> Surface
-connectSurface [] = []
-connectSurface [p] = [p]
-connectSurface (p:q:polys) =
-  case connectPolys p q of
-    Just r -> connectSurface (r : polys)
-    Nothing -> connectSurface (q : connectSurface (p : polys))
+connectSurface surf = connectSurface' surf []
+ -}
+connectSurface' :: Surface -> Surface -> Surface -> Surface
+connectSurface' [] [] surf = surf
+connectSurface' [] (x:xs) surf = connectSurface' [x] xs surf
+connectSurface' (x:xs) [] surf = connectSurface' [] xs (x : surf)
+connectSurface' (x:xs) (y:ys) surf =
+  case connectPolys x y of
+    Nothing -> connectSurface' ((x : xs) ++ [y]) ys surf
+    Just p -> connectSurface' [] ((p : xs) ++ ys) surf
+
+connectSurface :: Surface -> Surface
+connectSurface surf = connectSurface' [] surf []
+
+makeTwistedEdgesAdjacent' :: Polygon -> Polygon -> Polygon -> Polygon
+makeTwistedEdgesAdjacent' [x, y, z, t] l1 l2 = l2
+makeTwistedEdgesAdjacent' before [] [] = before
+makeTwistedEdgesAdjacent' before [] (x:xs) =
+  makeTwistedEdgesAdjacent' before [x] xs
+makeTwistedEdgesAdjacent' before (x:xs) [] =
+  makeTwistedEdgesAdjacent' (before ++ [x]) [] xs
+makeTwistedEdgesAdjacent' before (x:xs) (y:ys) =
+  if x == y
+    then makeTwistedEdgesAdjacent' ([x, y] ++ before) [] (ys ++ (reflect xs))
+    else makeTwistedEdgesAdjacent' before ((x : xs) ++ [y]) ys
+
+makeTwistedEdgesAdjacent :: Polygon -> Polygon
+makeTwistedEdgesAdjacent poly = makeTwistedEdgesAdjacent' [] [] poly
+
+total :: Surface -> Surface
+total =
+  (map (makeTwistedEdgesAdjacent . simplifyAdjacentEdges)) . connectSurface

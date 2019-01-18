@@ -63,14 +63,15 @@ unitTests =
         (any
            (\x -> x)
            (map
-              (congruent
-                 (fromJust $
-                  connectPolys
-                    [Edge 1 False, Edge 2 True, Edge 3 False]
-                    [Edge 2 False, Edge 3 True, Edge 1 True]))
+              (congruent $
+               fromJust $
+               connectPolys
+                 [Edge 1 False, Edge 2 True, Edge 3 False]
+                 [Edge 2 False, Edge 3 True, Edge 1 True])
               [ [Edge 2 True, Edge 3 False, Edge 2 False, Edge 3 True]
               , [Edge 3 False, Edge 1 False, Edge 3 True, Edge 1 True]
               , [Edge 1 False, Edge 2 True, Edge 1 True, Edge 2 True]
               ]))
         True
+    , testCase "connect One" $ assertEqual [] True True
     ]

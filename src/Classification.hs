@@ -11,29 +11,40 @@ module Classification
 
 import qualified Data.Map as Map
 
+import Data.List
+
 data Edge = Edge
   { edge_id :: Integer
   , orientation :: Bool
   } deriving (Show, Eq)
 
-inverse :: Edge -> Edge
-inverse (Edge a o) = Edge a (not o)
-
 type Polygon = [Edge]
 
 type Surface = [Polygon]
 
+-- Change l'orientation d'une arête
+inverse :: Edge -> Edge
+inverse (Edge a o) = Edge a (not o)
+
+-- Change l'orientation d'un polygone
+reflect :: Polygon -> Polygon
+reflect = reverse . (map inverse)
+
+-- Compte le nombre d'occurences de chaque arête
 occurrences :: (Ord a) => [a] -> [(a, Int)]
 occurrences xs = Map.toList (Map.fromListWith (+) [(x, 1) | x <- xs])
 
+-- Vérifie si la surface est admissible : chaque arête doit apparaître deux fois
 admissible :: Surface -> Bool
 admissible surf =
   all (\x -> x == 2) ((map snd) . occurrences . (map edge_id) . concat $ surf)
 
+-- Permutation circulaire des sommets d'un polygone d'un cran vers la gauche
 rotateLeft :: Polygon -> Polygon
 rotateLeft [] = []
 rotateLeft (x:xs) = xs ++ [x]
 
+-- Permutation circulaire des sommets d'un polygone d'un cran vers la droite
 rotateRight :: Polygon -> Polygon
 rotateRight = reverse . rotateLeft . reverse
 
@@ -41,6 +52,7 @@ congruent' :: Polygon -> Polygon -> Polygon -> Bool
 congruent' [] _ _ = False
 congruent' (x:xs) q r = ((x : xs) ++ q == r) || congruent' xs (q ++ [x]) r
 
+-- Vérifie si un polynome peut être obtenu à partir d'un autre par permutation circulaire et/ou changement d'orientation
 congruent :: Polygon -> Polygon -> Bool
 congruent p q = (congruent' p [] q) || (congruent' (reflect p) [] q)
 
@@ -50,16 +62,16 @@ simplifyAdjacentEdges' (Edge e1 o1:Edge e2 o2:xs)
   | otherwise = (Edge e1 o1 : simplifyAdjacentEdges' (Edge e2 o2 : xs))
 simplifyAdjacentEdges' l = l
 
+-- Simplifie les arêtes adjacentes et de sens opposés
 simplifyAdjacentEdges :: Polygon -> Polygon
 simplifyAdjacentEdges =
   simplifyAdjacentEdges' . rotateLeft . simplifyAdjacentEdges'
 
-reflect :: Polygon -> Polygon
-reflect = reverse . (map inverse)
-
+-- Vérifie si une arête appartient à un polygone
 belongsTo :: Edge -> Polygon -> Bool
 belongsTo e p = (elem e p) || (elem (inverse e) p)
 
+-- Vérifie si deux polygones ont une arête commune
 commonEdge :: Polygon -> Polygon -> Bool
 commonEdge [] p2 = False
 commonEdge p1 [] = False
@@ -85,30 +97,10 @@ connectPolys' (x:xs) p (y:ys) q
               Just l -> Just l
               Nothing -> Nothing
 
+-- Réunit deux polygones (renvoie Nothing si pas d'ar^te commune)
 connectPolys :: Polygon -> Polygon -> Maybe Polygon
 connectPolys p q = connectPolys' p [] q []
 
-{- connectOne :: Polygon -> Surface -> (Polygon, Surface)
-connectOne poly [] = (poly, [])
-connectOne poly (x:xs) =
-  case connectPolys poly x of
-    Nothing ->
-      case connectOne poly xs of
-        (p, s) -> (p, (x : s))
-    Just p -> connectOne p xs
-
-connectSurface' :: Surface -> Surface -> Surface
-connectSurface' [] s = s
-connectSurface' (x:xs) s =
-  case connectOne x xs of
-    (p, q) ->
-      if p == x
-        then connectSurface' xs (x : s)
-        else connectSurface' (p : q) s
-
-connectSurface :: Surface -> Surface
-connectSurface surf = connectSurface' surf []
- -}
 connectSurface' :: Surface -> Surface -> Surface -> Surface
 connectSurface' [] [] surf = surf
 connectSurface' [] (x:xs) surf = connectSurface' [x] xs surf
@@ -118,9 +110,11 @@ connectSurface' (x:xs) (y:ys) surf =
     Nothing -> connectSurface' ((x : xs) ++ [y]) ys surf
     Just p -> connectSurface' [] ((p : xs) ++ ys) surf
 
+-- "Connexifie" une surface
 connectSurface :: Surface -> Surface
 connectSurface surf = connectSurface' [] surf []
 
+-- http://www.math.uchicago.edu/~may/VIGRE/VIGRE2011/REUPapers/Teo.pdf Step4
 makeTwistedEdgesAdjacent' :: Polygon -> Polygon -> Polygon -> Polygon
 makeTwistedEdgesAdjacent' [x, y, z, t] l1 l2 = l2
 makeTwistedEdgesAdjacent' before [] [] = before
